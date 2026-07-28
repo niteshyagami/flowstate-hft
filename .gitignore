@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+runs/
+*.csv
+*.json
+!requirements.txt
+.DS_Store
+.idea/
+.vscode/
+
+captures/
+captures/old/

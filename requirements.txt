@@ -1,0 +1,4 @@
+# FlowState HFT — runtime dependencies (Python 3.11+)
+numpy>=1.26,<3.0
+pandas>=2.1
+websockets>=12.0
