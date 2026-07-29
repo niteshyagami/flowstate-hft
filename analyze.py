@@ -55,6 +55,8 @@ class BacktestConfig:
     risk_horizon: float = 60.0
     tick_size: float = 1.0
     micro_weight: float = 0.7
+    signal_skew: float = 0.0
+    imbalance_skew: float = 0.0
     min_samples: int = 5
     vol_window: int = 120
     maker_fee_bps: float = 0.15
@@ -76,6 +78,8 @@ def backtest_file(path: str | Path, cfg: BacktestConfig) -> PerformanceReport:
         gamma=cfg.gamma, kappa=cfg.kappa, order_size=cfg.order_size,
         max_inventory=cfg.max_inventory, risk_horizon=cfg.risk_horizon,
         tick_size=cfg.tick_size, micro_weight=cfg.micro_weight,
+        signal_skew_coefficient=cfg.signal_skew,
+        imbalance_skew_coefficient=cfg.imbalance_skew,
     ))
     features = FeatureEngine(min_samples=cfg.min_samples, vol_window=cfg.vol_window)
     sim = PaperExecutionSimulator(SimConfig(
@@ -297,6 +301,10 @@ def main(argv: list[str] | None = None) -> int:
     g.add_argument("--maker-fee-bps", type=float, default=0.15)
     g.add_argument("--min-samples", type=int, default=5)
     g.add_argument("--vol-window", type=int, default=120)
+    g.add_argument("--signal-skew", type=float, default=0.0,
+                   help="micro-price-premium predictive skew strength (0 = off)")
+    g.add_argument("--imbalance-skew", type=float, default=0.0,
+                   help="book-imbalance predictive skew strength (0 = off)")
     g.add_argument("-v", "--verbose", action="store_true")
     args = p.parse_args(argv)
 
@@ -310,6 +318,7 @@ def main(argv: list[str] | None = None) -> int:
         max_inventory=args.max_inventory, tick_size=args.tick_size,
         maker_fee_bps=args.maker_fee_bps, min_samples=args.min_samples,
         vol_window=args.vol_window,
+        signal_skew=args.signal_skew, imbalance_skew=args.imbalance_skew,
     )
     auto_tick = not args.no_auto_tick
 

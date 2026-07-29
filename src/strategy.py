@@ -118,8 +118,21 @@ class ASParams:
     micro_weight:
         Blend weight :math:`w` in :math:`s = w\\,p^{micro} + (1-w)\\,p^{mid}`.
     ofi_skew_coefficient:
-        :math:`\\beta`. Quote shift in *relative* terms per unit normalized OFI.
-        ``1e-5`` on a $100k asset is a $1 shift at full imbalance.
+        :math:`\\beta`. Quote shift in *relative* terms per unit smoothed OFI.
+    signal_skew_coefficient:
+        Predictive skew strength on the **micro-price premium**
+        :math:`(p^{micro}-m)/m`, which measured the highest information
+        coefficient (IC≈0.4-0.5 at h=1) of any signal. Unlike the OFI term,
+        which pushes quotes *away* from flow to avoid being run over, this term
+        shifts the quote *centre toward* the predicted move: if the micro-price
+        says price is about to rise, both quotes lift so the maker buys before
+        the rise and doesn't sell too cheap. ``0`` disables it (vanilla A-S).
+        Because the premium is already a fraction, the shift is
+        :math:`c \\cdot \\text{premium} \\cdot s`, clipped to the half-spread.
+    imbalance_skew_coefficient:
+        Predictive skew on top-of-book imbalance :math:`(I - 0.5)`, the
+        second-strongest signal (IC≈0.4 at h=5-10). Complements the micro-price
+        term, which leads at h=1 while imbalance leads slightly later.
     tick_size:
         Venue price increment. Bids round down, asks round up — never quote
         tighter than the grid allows.
@@ -142,6 +155,8 @@ class ASParams:
     session_seconds: float = 3600.0
     micro_weight: float = 0.70
     ofi_skew_coefficient: float = 1.0e-5
+    signal_skew_coefficient: float = 0.0
+    imbalance_skew_coefficient: float = 0.0
     tick_size: float = 0.5
     min_half_spread_ticks: float = 1.0
     max_half_spread_bps: float = 50.0
@@ -280,10 +295,25 @@ class AvellanedaStoikovStrategy:
         half_spread = self.cap_half_spread(self._half_spread(sigma_px, horizon), reference)
 
         # ---- 3. Microstructure skew --------------------------------------- #
-        #     Push quotes away from the direction aggressive flow is running.
+        # Two conceptually opposite adjustments, both clipped to the spread:
+        #   (a) OFI skew: push AWAY from aggressive flow (defensive, anti-run-over).
+        #   (b) Predictive skew: shift the centre TOWARD the move the leading
+        #       signals (micro-price premium, book imbalance) forecast. These
+        #       had the highest information coefficient in Phase-2 research
+        #       (IC ~ 0.4-0.5), so acting on them directly attacks adverse
+        #       selection — the maker steps ahead of informed flow instead of
+        #       being picked off by it.
         ofi_shift = self.p.ofi_skew_coefficient * f.ofi_ewma * reference
-        ofi_shift = float(np.clip(ofi_shift, -half_spread, half_spread))
-        centre = reservation + ofi_shift
+
+        micro_premium = (f.micro - f.mid) / f.mid if f.mid > 0 else 0.0
+        predictive_shift = (
+            self.p.signal_skew_coefficient * micro_premium
+            + self.p.imbalance_skew_coefficient * (f.imbalance - 0.5)
+        ) * reference
+
+        total_shift = float(np.clip(ofi_shift + predictive_shift,
+                                    -half_spread, half_spread))
+        centre = reservation + total_shift
 
         raw_bid = centre - half_spread
         raw_ask = centre + half_spread
