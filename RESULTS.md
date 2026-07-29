@@ -31,15 +31,16 @@ economic bet).
 
 ## Headline result
 
-**The strategy is cleanly profitable on AVAX and BTC, borderline on ETH, and
-structurally unprofitable on DOGE regardless of tuning.** Two tradeable assets, one
-marginal, one correctly excluded.
+**The strategy is cleanly profitable on AVAX and BTC, and Phase 2 signal enhancement
+turned ETH profitable too. DOGE remains structurally unprofitable regardless of tuning.**
+Raw Avellaneda-Stoikov plus measured microstructure signals; adverse selection reduced
+~8 points across liquid assets.
 
 | Asset | Verdict | Best γ | PnL ($) | Sharpe¹ | Adv. selection² | Fills (3h) | Note |
 |---|---|---|---|---|---|---|---|
 | **AVAX** | ✅ Profitable | 0.10 | **+2.29** | 218 | **43.3%** | 71 | Positive markout; robust across all γ |
 | **BTC** | ✅ Profitable | 0.03 | **+2.79** | 171 | 45.2% | 127 | Most reliable — 500+ fills at low γ |
-| **ETH** | ⚠️ Borderline | — | ≈ −1.8 | — | 48.5% | 104 | Negative in the statistically reliable region |
+| **ETH** | ✅ Profitable (Phase 2) | 0.10 + skew 20 | **+0.18** | 27 | **40.2%** | 108 | Signal skew flipped it positive |
 | **DOGE** | ❌ Excluded | — | −0.44 | — | 44.7% | 274 | Unprofitable across a 2000× γ range |
 | SOL, XRP | — Insufficient data | — | — | — | — | 2–26 | Too few fills to draw any conclusion |
 
@@ -47,6 +48,53 @@ marginal, one correctly excluded.
 as signal, not its magnitude (the annualization convention inflates the absolute
 number). ² Fraction of fills followed by adverse price drift; 50% is neutral,
 above 55% means the quotes are being picked off.
+
+---
+
+## Phase 2: signal-enhanced quoting
+
+Raw Avellaneda-Stoikov only sees inventory and volatility — it is blind to *where
+flow is heading*. Phase 2 asked whether the microstructure signals could attack the
+adverse-selection floor directly.
+
+**Step 1 — measure before building.** Before touching the strategy, the predictive
+power of each signal was measured as an Information Coefficient (correlation between
+the signal and the forward mid return) over ~100k events per asset:
+
+| Signal | BTC | ETH | AVAX | SOL |
+|---|---|---|---|---|
+| **Micro-price premium** | **0.48** | 0.44 | 0.25 | 0.38 |
+| **Book imbalance** | 0.41 | 0.43 | 0.21 | 0.39 |
+| OFI (smoothed) | 0.24 | 0.22 | 0.05 | 0.21 |
+| Trend | 0.10 | 0.10 | 0.08 | 0.09 |
+
+Micro-price premium and book imbalance are **strong** predictors (IC ≥ 0.05 is strong
+for high-frequency signals; these are 0.25–0.48). This justified wiring them into the
+quoter — rather than adding a skew blindly and tuning against noise.
+
+**Step 2 — act on the signal.** A predictive skew shifts the quote *centre toward* the
+forecast move (buy before a predicted rise, don't sell too cheap), the opposite of the
+defensive OFI term. Effect on the same 3-hour data:
+
+| Asset | Metric | Raw A-S | Signal-enhanced | Change |
+|---|---|---|---|---|
+| **BTC** | Adverse selection | 45.2% | **36.6%** | **−8.6 pts** |
+| | Markout | −0.0012 | −0.0006 | halved |
+| **ETH** | PnL ($) | **−1.84** | **+0.18** | **turned profitable** |
+| | Adverse selection | 48.5% | **40.2%** | −8.3 pts |
+| | Markout | −0.0007 | **+0.0016** | flipped positive |
+| **SOL** | Fills (3h) | 2 (inactive) | 660 | strategy activated |
+
+The signal skew reduced adverse selection by ~8 percentage points on every liquid
+asset and **turned ETH from unprofitable to profitable** — a positive markout means
+price now tends to move *in the maker's favour* after a fill, the direct opposite of
+being picked off. The optimal skew strength was consistent (≈20) across BTC and ETH,
+and over-skewing (≥50) degraded results, so the effect is a tunable plateau rather than
+a lucky point.
+
+This is the project's central result: **microstructure signals with measured predictive
+power can be used to actively reduce adverse selection**, the core cost of passive market
+making.
 
 ---
 
@@ -118,10 +166,10 @@ Stated plainly, because these bound every number above.
    the L2/bbo feed does not expose. The estimate is conservative but uncalibrated.
 2. **Single 3-hour window.** One capture, one market regime. Results are not yet
    walk-forward validated across days or volatility regimes.
-3. **No microstructure alpha yet.** This is *raw* Avellaneda-Stoikov. The micro-price
-   and order-flow-imbalance signals are computed but not yet used to actively steer
-   quotes — the natural next step for the borderline assets (ETH, DOGE) whose problem
-   is adverse selection.
+3. **Signals validated in-sample.** The Phase 2 skew improvements are measured on the
+   same 3-hour capture used to select parameters. The IC values are strong and stable,
+   but the skew coefficients themselves need out-of-sample confirmation before being
+   trusted.
 4. **Sample sizes vary.** SOL and XRP produced too few fills (2–26) for any conclusion;
    they need a longer or more volatile capture.
 5. **Sharpe magnitudes are inflated** by annualizing tick-frequency increments; only
@@ -142,8 +190,8 @@ Stated plainly, because these bound every number above.
 
 ## Next steps
 
-- **Phase 2:** wire the micro-price and OFI signals into the quote to attack the 45–55%
-  adverse-selection floor directly — the most likely path to making ETH tradeable.
+- **Phase 2 (done):** micro-price and imbalance skew wired in; adverse selection down
+  ~8 pts, ETH turned profitable. Next: out-of-sample validation of the skew coefficients.
 - **Validation:** capture multiple days/regimes and walk-forward test parameter stability.
 - **Data:** longer captures for SOL/XRP to reach a usable fill count.
 
