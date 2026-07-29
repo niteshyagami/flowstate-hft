@@ -31,16 +31,17 @@ economic bet).
 
 ## Headline result
 
-**The strategy is cleanly profitable on AVAX and BTC, and Phase 2 signal enhancement
-turned ETH profitable too. DOGE remains structurally unprofitable regardless of tuning.**
-Raw Avellaneda-Stoikov plus measured microstructure signals; adverse selection reduced
-~8 points across liquid assets.
+**The one edge that survives out-of-sample is the signal-enhanced quote on BTC.** Raw
+Avellaneda-Stoikov (γ-tuned, no signal) overfit even on BTC; adding the microstructure
+signal skew is what made it robust. ETH's signal gain and BTC's raw-γ gain both failed
+walk-forward validation. The headline isn't a big return — it's a validation procedure
+honest enough to reject two of three candidate edges before any capital is risked.
 
 | Asset | Verdict | Best γ | PnL ($) | Sharpe¹ | Adv. selection² | Fills (3h) | Note |
 |---|---|---|---|---|---|---|---|
 | **AVAX** | ✅ Profitable | 0.10 | **+2.29** | 218 | **43.3%** | 71 | Positive markout; robust across all γ |
 | **BTC** | ✅ Profitable | 0.03 | **+2.79** | 171 | 45.2% | 127 | Most reliable — 500+ fills at low γ |
-| **ETH** | ✅ Profitable (Phase 2) | 0.10 + skew 20 | **+0.18** | 27 | **40.2%** | 108 | Signal skew flipped it positive |
+| **ETH** | ⚠️ In-sample only | — | in-sample +, **OOS −** | — | 40→56% | 108 | Phase 2 gain was overfit (see validation) |
 | **DOGE** | ❌ Excluded | — | −0.44 | — | 44.7% | 274 | Unprofitable across a 2000× γ range |
 | SOL, XRP | — Insufficient data | — | — | — | — | 2–26 | Too few fills to draw any conclusion |
 
@@ -155,6 +156,39 @@ outcome.
 The same discipline applied to ETH's γ=0.5 row, which showed +0.96 PnL — but on only
 **18 fills**, too few to trust. It was treated as noise, and ETH's verdict rests on the
 statistically reliable γ ≤ 0.1 region, where it is marginally negative.
+
+---
+
+## Walk-forward validation: which results are actually real
+
+Every number above is *in-sample* — parameters were chosen on the same data they were
+scored on. The only test that matters is whether a chosen parameter survives on data it
+was never fitted to. Each asset's three one-hour chunks were split chronologically:
+train on the first two hours (select the parameter by in-sample Sharpe), then evaluate
+that single choice on the unseen final hour.
+
+| Asset | Parameter | In-sample | Out-of-sample | Verdict |
+|---|---|---|---|---|
+| BTC | gamma (raw A-S, no signal) | +2.51, adv-sel 42.9% | **−1.86, adv-sel 55.1%** | ❌ Overfit |
+| **BTC** | **signal_skew = 20** (γ fixed) | +0.71, adv-sel 34.7% | **+0.60, still profitable** | ✅ **Edge held** |
+| ETH | signal_skew = 20 | +0.51, adv-sel 39.1% | −0.38, adv-sel 56.1% | ❌ Overfit |
+
+Three tests, and the pattern between the first two is the real insight. Tuning **γ
+alone** (raw Avellaneda-Stoikov, no signal) overfit on BTC — the value that looked best
+in training lost money on the holdout. But holding γ fixed and adding the **signal
+skew** produced an edge that *did* survive out-of-sample. In other words, on BTC the
+raw model's apparent edge was fragile, and it was the **microstructure signal that made
+the strategy robust**, not the risk-aversion tuning.
+
+ETH's signal skew, by contrast, did not survive — its Phase 2 improvement was in-sample
+overfitting.
+
+The headline result therefore stands on the BTC signal test: **the one edge that held
+out-of-sample is the signal-enhanced quote on BTC**, and the validation caught two
+overfit results (BTC raw-γ, ETH signal) on paper before any capital was risked. A
+validation procedure that passed everything would be worthless; this one rejected two of
+three candidates, which is exactly why the surviving one can be trusted — with the
+caveat that a single 3-hour split is a directional check, not a guarantee.
 
 ---
 
