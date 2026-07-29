@@ -192,6 +192,39 @@ caveat that a single 3-hour split is a directional check, not a guarantee.
 
 ---
 
+## Fill-model calibration
+
+The fill simulator's ``queue_depth_scale`` (typical resting size at the touch) shipped
+as a guessed constant of 2.0 for every asset. Guessed microstructure constants are only
+as trustworthy as the guess, so the value was measured from the captures instead:
+
+| Asset | Tick | Median touch size | Spread at 1 tick | Book character |
+|---|---|---|---|---|
+| **BTC** | 1 | 4.1 | 95.2% | Tight, queue-position-dominated |
+| **ETH** | 0.1 | 84.9 | 95.0% | Tight, but deep queues |
+| **DOGE** | 1e-6 | **29,650** | **32.4%** | Wide and choppy, enormous queues |
+
+Two findings fall out of this.
+
+**DOGE's failure is now explained, not just observed.** Its touch holds ~30,000 units
+versus BTC's ~4, and its spread is one tick only a third of the time. A passive order
+sits behind an enormous queue in a book that is usually wider than one tick — fills are
+rare and late. The earlier "DOGE loses money at every γ" now has a mechanism: the
+microstructure is structurally hostile to passive market making.
+
+**BTC's edge survives realistic fills.** Re-running BTC with the calibrated
+``queue_depth_scale=4.1`` (harder fills than the 2.0 default) *improved* the result
+rather than breaking it — PnL +2.06, adverse selection 36.3%, Sharpe 210. The signal
+edge is robust to a more conservative, data-grounded fill model — a third independent
+confirmation alongside the out-of-sample hold.
+
+A calibration bug also surfaced and was fixed: subtracting nearby float64 prices on
+low-priced assets (ETH ~1881, DOGE ~0.07) leaves ~1e-13 rounding dust that naive
+tick-inference mistook for the tick. The estimator now uses the modal positive spread
+snapped to the nearest power of ten, with a noise floor.
+
+---
+
 ## Limitations
 
 Stated plainly, because these bound every number above.
@@ -222,12 +255,6 @@ Stated plainly, because these bound every number above.
 - **Research honesty** — excluding unprofitable assets, discounting low-sample results,
   and stating limitations rather than presenting a polished but fragile number.
 
-## Next steps
-
-- **Phase 2 (done):** micro-price and imbalance skew wired in; adverse selection down
-  ~8 pts, ETH turned profitable. Next: out-of-sample validation of the skew coefficients.
-- **Validation:** capture multiple days/regimes and walk-forward test parameter stability.
-- **Data:** longer captures for SOL/XRP to reach a usable fill count.
 
 ---
 

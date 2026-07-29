@@ -61,6 +61,7 @@ class BacktestConfig:
     vol_window: int = 120
     maker_fee_bps: float = 0.15
     latency_ms: float = 50.0
+    queue_depth_scale: float = 2.0
     seed: int = 42
 
 
@@ -85,6 +86,7 @@ def backtest_file(path: str | Path, cfg: BacktestConfig) -> PerformanceReport:
     sim = PaperExecutionSimulator(SimConfig(
         maker_fee_bps=cfg.maker_fee_bps, latency_ms=cfg.latency_ms,
         max_inventory=cfg.max_inventory, rng_seed=cfg.seed,
+        queue_depth_scale=cfg.queue_depth_scale,
     ))
 
     resting_ref = 0.0
@@ -299,6 +301,8 @@ def main(argv: list[str] | None = None) -> int:
     g.add_argument("--max-inventory", type=float, default=0.05)
     g.add_argument("--tick-size", type=float, default=1.0)
     g.add_argument("--maker-fee-bps", type=float, default=0.15)
+    g.add_argument("--queue-depth-scale", type=float, default=2.0,
+                   help="typical resting size at touch (calibrate.py measures this)")
     g.add_argument("--min-samples", type=int, default=5)
     g.add_argument("--vol-window", type=int, default=120)
     g.add_argument("--signal-skew", type=float, default=0.0,
@@ -319,6 +323,7 @@ def main(argv: list[str] | None = None) -> int:
         maker_fee_bps=args.maker_fee_bps, min_samples=args.min_samples,
         vol_window=args.vol_window,
         signal_skew=args.signal_skew, imbalance_skew=args.imbalance_skew,
+        queue_depth_scale=args.queue_depth_scale,
     )
     auto_tick = not args.no_auto_tick
 
